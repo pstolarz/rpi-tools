@@ -1,60 +1,91 @@
 #!/bin/sh
+set -e
 
-if [ "${ARCH}x" = "x"  -o "${CROSS_COMPILE}x" = "x" -o "${KERNEL_SRC}x" = "x" ]; then
-  echo "ERROR: Building environment must be properly set"
+if [ "${KERNEL_SRC}x" = "x" ]; then
+  echo "ERROR: KERNEL_SRC not set"
   exit 1
 fi
 
-if [ "${ARCH}" != "arm" ]; then
-  echo "ERROR: Invalid architecture set in ARCH; Supported architectures: arm"
+echo "Building for:"
+echo "1) Pi 1/Zero/Zero W, CM [32-bit]"
+echo "2) Pi 2/3/3+, CM 3 [32-bit]"
+echo "3) Pi 4 [32-bit]"
+echo "4) Pi 3/3+, CM 3 [64-bit]"
+echo "5) Pi 4 [64-bit]"
+
+read -p ":" choice
+
+build_cores=$(cat /proc/cpuinfo | awk '/cpu cores/{print $4; exit(0)}')
+
+case ${choice} in
+  1) export ARCH=arm
+     export CROSS_COMPILE=${TOOLCHAIN32}
+     target=bcmrpi_defconfig;;
+
+  2) export ARCH=arm
+     export CROSS_COMPILE=${TOOLCHAIN32}
+     target=bcm2709_defconfig;;
+
+  3) export ARCH=arm
+     export CROSS_COMPILE=${TOOLCHAIN32}
+     target=bcm2711_defconfig;;
+
+  4) export ARCH=arm64
+     export CROSS_COMPILE=${TOOLCHAIN64}
+     target=bcmrpi3_defconfig;;
+
+  5) export ARCH=arm64
+     export CROSS_COMPILE=${TOOLCHAIN64}
+     target=bcm2711_defconfig;;
+
+  *) echo "ERROR: Invalid input"
+     exit 1;;
+esac
+
+if [ "${CROSS_COMPILE}x" = "x" ]; then
+  echo "ERROR: TOOLCHAIN not set for ${ARCH} build"
   exit 1
 fi
 
-echo "Building for"
-echo "1) RPi 1"
-echo "2) RPi 2/3"
-echo "3) RPi 4"
-echo "4) Go to packaging"
+make -C ${KERNEL_SRC} ${target}
+make -C ${KERNEL_SRC} -j${build_cores}
 
-read -p ":" CHOICE
+root_dir=.rpi_root
+ker_rel=$(make -s -C ${KERNEL_SRC} kernelrelease)
+ker_ver=$(make -s -C ${KERNEL_SRC} kernelversion)
+arch_name=kernel-${ker_rel}.tar.gz
 
-case ${CHOICE} in
-  1) BLD_TARGET=bcmrpi_defconfig;;
-  2) BLD_TARGET=bcm2709_defconfig;;
-  3) BLD_TARGET=bcm2711_defconfig;;
-  4) BLD_TARGET=;;
-  *) echo "ERROR: Invalid input"; exit 1;;
+case $(echo ${ker_rel} | sed "s/${ker_ver}\(.*\)/\\1/") in
+  +) img_name=kernel.img;;
+  -v7+) img_name=kernel7.img;;
+  -v7l+) img_name=kernel7l.img;;
+  -v8+)
+    if [ "${target}" = "bcm2711_defconfig" ]; then
+      arch_name=kernel-${ker_ver}-v8l+.tar.gz
+      img_name=kernel8l.img
+    else
+      img_name=kernel8.img
+    fi;;
+  *) echo "ERROR: Kernel release not recognized"; exit 1;;
 esac
 
-if [ "${BLD_TARGET}x" != "x" ]; then
-  make -C ${KERNEL_SRC} ${BLD_TARGET}
-  make -C ${KERNEL_SRC} -j4
+mkdir ${root_dir}
+mkdir ${root_dir}/boot
+mkdir ${root_dir}/boot/overlays
+
+INSTALL_MOD_PATH=$(pwd)/${root_dir} make -C ${KERNEL_SRC} modules_install
+rm -f ${root_dir}/lib/modules/${ker_rel}/build
+rm -f ${root_dir}/lib/modules/${ker_rel}/source
+
+if [ "${ARCH}" = "arm" ]; then
+  cp ${KERNEL_SRC}/arch/${ARCH}/boot/zImage ${root_dir}/boot/${img_name}
+  cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/*.dtb ${root_dir}/boot
+else
+  cp ${KERNEL_SRC}/arch/${ARCH}/boot/Image ${root_dir}/boot/${img_name}
+  cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/broadcom/*.dtb ${root_dir}/boot
 fi
+cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/overlays/*.dtb* ${root_dir}/boot/overlays
+cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/overlays/README ${root_dir}/boot/overlays
 
-ROOT_DIR=.rpi_root
-KERN_REL=`make -s -C ${KERNEL_SRC} kernelrelease`
-KERN_VER=`make -s -C ${KERNEL_SRC} kernelversion`
-
-case $(echo ${KERN_REL} | sed "s/${KERN_VER}\(.*\)/\\1/") in
-    +) IMG_NAME=kernel.img;;
-    -v7+) IMG_NAME=kernel7.img;;
-    -v7l+) IMG_NAME=kernel7l.img;;
-    *) echo "ERROR: Kernel release not recognized"; exit 1;;
-esac
-
-mkdir ${ROOT_DIR}
-mkdir ${ROOT_DIR}/boot
-mkdir ${ROOT_DIR}/boot/overlays
-
-INSTALL_MOD_PATH=`pwd`/${ROOT_DIR} make -C ${KERNEL_SRC} modules_install
-rm -f ${ROOT_DIR}/lib/modules/${KERN_REL}/build
-rm -f ${ROOT_DIR}/lib/modules/${KERN_REL}/source
-
-cp ${KERNEL_SRC}/arch/${ARCH}/boot/zImage ${ROOT_DIR}/boot/${IMG_NAME}
-
-cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/*.dtb ${ROOT_DIR}/boot
-cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/overlays/*.dtb* ${ROOT_DIR}/boot/overlays
-cp ${KERNEL_SRC}/arch/${ARCH}/boot/dts/overlays/README ${ROOT_DIR}/boot/overlays
-
-fakeroot tar czf kernel-${KERN_REL}.tar.gz -C ${ROOT_DIR} boot/ lib/
-rm -rf ${ROOT_DIR}
+fakeroot tar czf ${arch_name} -C ${root_dir} boot/ lib/
+rm -rf ${root_dir}
