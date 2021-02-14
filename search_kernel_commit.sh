@@ -33,7 +33,7 @@ if [ $res_n -gt 0 ]; then
     ker_commit=$(wget -qO - \
       https://raw.githubusercontent.com/raspberrypi/firmware/$fw_commit/extra/git_hash)
 
-    echo "  raspberrypi/linux: "$ker_commit" raspberrypi/firmware: "$fw_commit" ["$msg"]"
+    echo "  linux: "$ker_commit" firmware: "$fw_commit" ["$msg"]"
     i=$((i+1))
   done
 else

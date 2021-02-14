@@ -7,15 +7,13 @@ if [ "${KERNEL_SRC}x" = "x" ]; then
 fi
 
 echo "Building for:"
-echo "1) Pi 1/Zero/Zero W, CM [32-bit]"
-echo "2) Pi 2/3/3+, CM 3 [32-bit]"
-echo "3) Pi 4 [32-bit]"
-echo "4) Pi 3/3+, CM 3 [64-bit]"
-echo "5) Pi 4 [64-bit]"
+echo "1) Pi 1/Zero/Zero W, CM (32-bit)"
+echo "2) Pi 2/3/3+, CM 3 (32-bit)"
+echo "3) Pi 4 (32-bit)"
+echo "4) Pi 3/3+, CM 3 (64-bit)"
+echo "5) Pi 4 (64-bit)"
 
 read -p ":" choice
-
-build_cores=$(cat /proc/cpuinfo | awk '/cpu cores/{print $4; exit(0)}')
 
 case ${choice} in
   1) export ARCH=arm
@@ -47,6 +45,8 @@ if [ "${CROSS_COMPILE}x" = "x" ]; then
   exit 1
 fi
 
+build_cores=$(cat /proc/cpuinfo | awk '/cpu cores/{print $4; exit(0)}')
+
 make -C ${KERNEL_SRC} ${target}
 make -C ${KERNEL_SRC} -j${build_cores}
 
@@ -59,12 +59,9 @@ case $(echo ${ker_rel} | sed "s/${ker_ver}\(.*\)/\\1/") in
   +) img_name=kernel.img;;
   -v7+) img_name=kernel7.img;;
   -v7l+) img_name=kernel7l.img;;
-  -v8+)
+  -v8+) img_name=kernel8.img
     if [ "${target}" = "bcm2711_defconfig" ]; then
       arch_name=kernel-${ker_ver}-v8l+.tar.gz
-      img_name=kernel8l.img
-    else
-      img_name=kernel8.img
     fi;;
   *) echo "ERROR: Kernel release not recognized"; exit 1;;
 esac
