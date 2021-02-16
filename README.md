@@ -3,6 +3,18 @@ Cross compile RPi Linux kernel. The script automates the building process
 described [here](https://www.raspberrypi.org/documentation/linux/kernel/building.md)
 
 ### Usage
+```
+Usage: build_kernel.sh [RPI_PLAT]
+where RPI_PLAT is one of:
+pi0, pi1, cm   for Pi 1/Zero/Zero W, CM (32-bit)
+pi2, pi3, cm3  for Pi 2/3/3+, CM 3 (32-bit)
+pi4            for Pi 4 (32-bit)
+pi3_64, cm3_64 for Pi 3/3+, CM 3 (64-bit)
+pi4_64         for Pi 4 (64-bit)
+
+If RPI_PLAT is not provided build target may be chosen from menu on run-time.
+```
+
 Before building the kernel `TOOLCHAIN32/64` and `KERNEL_SRC` environment
 variables need to be set. [`setenv.sh`](setenv.sh) contains sample configuration
 of these variables. Update the script accordingly and source it:
@@ -11,15 +23,9 @@ of these variables. Update the script accordingly and source it:
 . ./setenv.sh
 ```
 
-Then run the `build_kernel.sh` script:
-
-```sh
-./build_kernel.sh
-```
-
-Choose required target platform from menu. The result is *tar.gz* archive
-containing the kernel build. Appropriate prefix is added to the archive name
-to distinguish targets as follows:
+After running `build_kernel.sh` script the result is *tar.gz* archive containing
+the kernel build. Appropriate prefix is added to the archive name to distinguish
+targets as follows:
 
 * `kernel-x.y.z+.tar.gz` for Pi 1/Zero/Zero W, CM (32-bit)
 * `kernel-x.y.z-v7+.tar.gz` for Pi 2/3/3+, CM 3 (32-bit)
@@ -27,7 +33,8 @@ to distinguish targets as follows:
 * `kernel-x.y.z-v8+.tar.gz` for Pi 3/3+, CM 3 (64-bit)
 * `kernel-x.y.z-v8l+.tar.gz` for Pi 4 (64-bit)
 
-NOTE: `kernel8` is a common kernel image name inside Pi 3/3+ and Pi 4 archives.
+NOTE: `kernel8` is a common kernel image name inside Pi 3/3+ and Pi 4 64-bit
+archives.
 
 The archive content may be directly extracted on the platform root filesystem.
 **Make the kernel image backup if needed!**
